@@ -1,10 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 
+const suggestions = [
+  "I have a headache and fever",
+  "Sore throat for 3 days",
+  "Feeling tired and dizzy",
+  "Stomach pain after eating",
+];
+
 const AIHealthAssistant = () => {
   const [symptoms, setSymptoms] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,11 +50,13 @@ const AIHealthAssistant = () => {
     }
   };
 
+  const hasMessages = messages.length > 0 || loading;
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
 
       {/* Header */}
-      <div className="border-b border-border px-6 py-4">
+      <div className="border-b border-border px-6 py-4 flex-shrink-0">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-lg">
             🩺
@@ -63,7 +73,7 @@ const AIHealthAssistant = () => {
       </div>
 
       {/* Disclaimer */}
-      <div className="border-b border-border bg-muted/40 px-6 py-2.5">
+      <div className="border-b border-border bg-muted/40 px-6 py-2.5 flex-shrink-0">
         <div className="max-w-3xl mx-auto flex items-start gap-2">
           <span className="text-amber-500 text-xs mt-0.5">⚠️</span>
           <p className="text-xs text-muted-foreground">
@@ -73,112 +83,139 @@ const AIHealthAssistant = () => {
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-6">
-        <div className="max-w-3xl mx-auto px-4 space-y-5">
-
-          {messages.length === 0 && !loading && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-teal-500/10 flex items-center justify-center text-3xl">
-                🩺
-              </div>
-              <div>
-                <h2 className="font-semibold text-base mb-1">How can I help you today?</h2>
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  Describe your symptoms and I'll provide instant AI-powered health insights and guidance.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-sm">
-                {[
-                  "I have a headache and fever",
-                  "Sore throat for 3 days",
-                  "Feeling tired and dizzy",
-                  "Stomach pain after eating",
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => setSymptoms(suggestion)}
-                    className="text-xs text-left px-3 py-2.5 rounded-xl border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+      {/* Main area */}
+      {!hasMessages ? (
+        /* Empty state — centered with suggestions + input */
+        <div className="flex-1 flex flex-col items-center justify-center px-4 gap-6">
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-2xl bg-teal-500/10 flex items-center justify-center text-3xl mx-auto mb-4">
+              🩺
             </div>
-          )}
+            <h2 className="font-semibold text-lg mb-1">How can I help you today?</h2>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Describe your symptoms and I'll provide instant AI-powered health insights.
+            </p>
+          </div>
 
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-sm flex-shrink-0 mt-1">
-                  🩺
+          {/* Suggestions */}
+          <div className="grid grid-cols-2 gap-2 w-full max-w-md">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                onClick={() => {
+                  setSymptoms(s);
+                  textareaRef.current?.focus();
+                }}
+                className="text-xs text-left px-3 py-2.5 rounded-xl border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {/* Input inline in empty state */}
+          <div className="w-full max-w-md">
+            <div className="flex items-end gap-3 bg-muted border border-border rounded-2xl px-4 py-3 focus-within:border-teal-500/50 focus-within:ring-1 focus-within:ring-teal-500/20 transition-all">
+              <textarea
+                ref={textareaRef}
+                value={symptoms}
+                onChange={(e) => setSymptoms(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Describe your symptoms…"
+                rows={1}
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none max-h-32"
+              />
+              <button
+                onClick={handleAnalyze}
+                disabled={loading || !symptoms.trim()}
+                className="w-8 h-8 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
+                aria-label="Send"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white">
+                  <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-center text-xs text-muted-foreground mt-2">
+              Press Enter to send · Shift+Enter for new line
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* Chat state — messages scroll, input pinned at bottom */
+        <>
+          <div className="flex-1 overflow-y-auto py-6">
+            <div className="max-w-3xl mx-auto px-4 space-y-5">
+
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-sm flex-shrink-0 mt-1">
+                      🩺
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-muted text-foreground rounded-bl-sm border border-border"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+
+              {loading && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-sm flex-shrink-0">
+                    🩺
+                  </div>
+                  <div className="bg-muted border border-border rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center">
+                    <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:300ms]" />
+                  </div>
                 </div>
               )}
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                    : "bg-muted text-foreground rounded-bl-sm border border-border"
-                }`}
-              >
-                {msg.text}
-              </div>
+
+              <div ref={bottomRef} />
             </div>
-          ))}
-
-          {loading && (
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-sm flex-shrink-0">
-                🩺
-              </div>
-              <div className="bg-muted border border-border rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center">
-                <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:150ms]" />
-                <span className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:300ms]" />
-              </div>
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-border px-4 py-4 bg-background">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-end gap-3 bg-muted border border-border rounded-2xl px-4 py-3 focus-within:border-teal-500/50 focus-within:ring-1 focus-within:ring-teal-500/20 transition-all">
-            <textarea
-              value={symptoms}
-              onChange={(e) => setSymptoms(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Describe your symptoms… (e.g. 'I have a sore throat and headache')"
-              rows={1}
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none max-h-32"
-            />
-            <button
-              onClick={handleAnalyze}
-              disabled={loading || !symptoms.trim()}
-              className="w-8 h-8 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
-              aria-label="Send"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                className="w-4 h-4 text-white"
-              >
-                <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-              </svg>
-            </button>
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            Press Enter to send · Shift+Enter for new line
-          </p>
-        </div>
-      </div>
+
+          {/* Input pinned at bottom */}
+          <div className="border-t border-border px-4 py-4 bg-background flex-shrink-0">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-end gap-3 bg-muted border border-border rounded-2xl px-4 py-3 focus-within:border-teal-500/50 focus-within:ring-1 focus-within:ring-teal-500/20 transition-all">
+                <textarea
+                  value={symptoms}
+                  onChange={(e) => setSymptoms(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe your symptoms…"
+                  rows={1}
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none max-h-32"
+                />
+                <button
+                  onClick={handleAnalyze}
+                  disabled={loading || !symptoms.trim()}
+                  className="w-8 h-8 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
+                  aria-label="Send"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white">
+                    <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-center text-xs text-muted-foreground mt-2">
+                Press Enter to send · Shift+Enter for new line
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
     </div>
   );
