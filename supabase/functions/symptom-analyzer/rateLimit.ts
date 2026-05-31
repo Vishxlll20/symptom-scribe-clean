@@ -59,8 +59,9 @@ export async function rateLimit(ip: string): Promise<{ success: boolean }> {
             const pipeline = redis.pipeline();
             pipeline.incr(key);
             pipeline.expire(key, 60, "NX");
-            const results = await pipeline.exec();
-            const count = results[0] as number;
+            // exec() returns a flat array of deserialized results in command order
+            // (not [error, result] tuples — errors throw immediately instead).
+            const [count] = await pipeline.exec<[number, number]>();
 
             if (count > MAX_REQUESTS) {
                 return { success: false };
