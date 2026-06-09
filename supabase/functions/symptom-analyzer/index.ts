@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { RequestSchema } from "./validation.ts";
 import { detectEmergencySymptoms } from "./medicalSafety.ts";
@@ -22,25 +23,43 @@ const getCorsHeaders = (origin: string | null) => ({
 });
 
 serve(async (req: Request): Promise<Response> => {
-  
   const origin = req.headers.get("origin");
 
-if (
-  origin &&
-  !ALLOWED_ORIGINS.includes(origin)
-) {
-  return new Response(
-    JSON.stringify({
-      error: "Origin not allowed",
-    }),
-    {
-      status: 403,
-      headers: {
-        "Content-Type": "application/json",
-      },
+  if (origin) {
+    if (!ALLOWED_ORIGINS.includes(origin)) {
+      return jsonResponse(
+        { error: "Origin not allowed" },
+        403,
+        getCorsHeaders(origin)
+      );
     }
-  );
-}
+  } else {
+    // Non-browser client request (missing Origin header). Require a valid verified token.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return jsonResponse(
+        { error: "Authentication required for non-browser requests" },
+        401,
+        getCorsHeaders(null)
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+
+    if (userError || !user) {
+      return jsonResponse(
+        { error: "Invalid or expired authorization token" },
+        401,
+        getCorsHeaders(null)
+      );
+    }
+  }
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: getCorsHeaders(origin),
